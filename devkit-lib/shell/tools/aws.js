@@ -4,10 +4,10 @@
  * Quick AWS operations: identity, S3, EC2, CloudWatch logs, profiles.
  */
 import { defineTool } from '../tool-sdk.js';
-import { inlineSelect, inlineText, _appendOutput } from '../inline.js';
+import { inlineSelect, inlineText, _appendOutput, _startWorking, _stopWorking } from '../inline.js';
 import { intro, outro, select, spinner, text, isCancel, cancel, note } from '@clack/prompts';
 import chalk from 'chalk';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync, execSync, execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -102,6 +102,32 @@ function runAwsJson(command, opts = {}) {
   } catch {
     return { ok: true, data: result.data, error: null };
   }
+}
+
+/** Async version — yields to event loop so spinners can animate during wait. */
+function runAwsJsonAsync(command, opts = {}) {
+  return new Promise((resolve) => {
+    const args = command.split(/\s+/);
+    const allArgs = [...args, '--output', 'json', ...awsArgs()];
+    let stdout = '', stderr = '';
+    const child = execFile('aws', allArgs, {
+      encoding: 'utf-8',
+      timeout: opts.timeout || 15000,
+      ...opts,
+    });
+    child.stdout.on('data', d => stdout += d);
+    child.stderr.on('data', d => stderr += d);
+    child.on('error', e => resolve({ ok: false, data: '', error: e.message }));
+    child.on('close', code => {
+      if (code === 0) {
+        try { resolve({ ok: true, data: JSON.parse(stdout.trim()), error: null }); }
+        catch { resolve({ ok: true, data: stdout.trim(), error: null }); }
+      } else {
+        const lines = stderr.trim().split('\n');
+        resolve({ ok: false, data: '', error: lines[lines.length - 1] || `exit ${code}` });
+      }
+    });
+  });
 }
 
 function fmtTable(rows, headers) {
@@ -688,7 +714,9 @@ async function execute(cmd) {
       }
 
       // Interactive: inlineSelect with scroll-window (handles any number of secrets)
-      const result = runAwsJson('secretsmanager list-secrets');
+      _startWorking('Loading secrets...');
+      const result = await runAwsJsonAsync('secretsmanager list-secrets');
+      _stopWorking();
       if (!result.ok) return [chalk.red(`  ❌  ${result.error}`)];
       const secretList = result.data?.SecretList;
       if (!secretList || !Array.isArray(secretList)) {

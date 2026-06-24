@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
 import readline from 'readline';
-import { _setOnPending, _setAppendOutput, _isPending, _resolve, _reset, _getType, _getOptions, _getDefault, _getSuggestions } from './inline.js';
+import { _setOnPending, _setAppendOutput, _setWorkingCallbacks, _isPending, _resolve, _reset, _getType, _getOptions, _getDefault, _getSuggestions } from './inline.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TOOLS_DIR = path.join(__dirname, 'tools');
@@ -96,6 +96,7 @@ function emit(...args) {
   if (lines.length > MAX_LINES) lines.splice(0, lines.length - MAX_LINES);
 }
 _setAppendOutput(emit);
+_setWorkingCallbacks(startWorking, stopWorking);
 
 function clearLines() {
   lines.length = 0;

@@ -42,6 +42,23 @@ export function _setAppendOutput(fn) {
   _appendOutputCallback = fn;
 }
 
+/** Called by the shell to register its start/stop working callbacks. */
+export function _setWorkingCallbacks(start, stop) {
+  _workingCallback = start;
+  _stopWorkingCallback = stop;
+}
+let _stopWorkingCallback = null;
+
+/** Tool calls this before a long async operation. Starts the spinner. */
+export function _startWorking(text) {
+  if (_workingCallback) _workingCallback(text);
+}
+
+/** Tool calls this after a long async operation. Stops the spinner. */
+export function _stopWorking() {
+  if (_stopWorkingCallback) _stopWorkingCallback();
+}
+
 /** Called by the shell's inlineHandler when a keypress resolves a pending request. */
 export function _isPending() {
   return _pendingResolve !== null;

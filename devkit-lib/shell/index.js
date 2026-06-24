@@ -128,7 +128,27 @@ function stopWorking() {
 
 // ─── Suggestions ───────────────────────────────────────
 
-const suggest = { items: [], sel: 0, visible: false };
+const suggest = { items: [], sel: 0, offset: 0, visible: false };
+const MAX_SUGGEST = 14; // max items visible at once
+
+function suggestVisibleItems() {
+  const start = suggest.offset;
+  const end = Math.min(start + MAX_SUGGEST, suggest.items.length);
+  return suggest.items.slice(start, end);
+}
+
+function scrollToIndex(idx) {
+  // Keep selected item in the visible window
+  if (idx < suggest.offset) {
+    suggest.offset = idx;
+  } else if (idx >= suggest.offset + MAX_SUGGEST) {
+    suggest.offset = idx - MAX_SUGGEST + 1;
+  }
+  // Clamp offset
+  if (suggest.offset < 0) suggest.offset = 0;
+  const maxOffset = Math.max(0, suggest.items.length - MAX_SUGGEST);
+  if (suggest.offset > maxOffset) suggest.offset = maxOffset;
+}
 
 function stripAnsi(s) { return s.replace(/\x1b\[[0-9;]*m/g, ''); }
 
@@ -165,7 +185,7 @@ function buildSuggestions(text) {
 
   if (pool.length === 0) { suggest.visible = false; return; }
   suggest.items = pool.slice(0, 12);
-  suggest.sel = 0;
+  suggest.sel = 0; suggest.offset = 0;
   suggest.visible = true;
 }
 
@@ -176,20 +196,31 @@ let th = process.stdout.rows || 24;
 function onResize() { tw = process.stdout.columns || 80; th = process.stdout.rows || 24; }
 
 function renderBox() {
-  if (!suggest.visible) return;
+  if (!suggest.visible || suggest.items.length === 0) return;
   const bw = Math.min(tw - 4, 64);
   const pad = 2;
+  const total = suggest.items.length;
+  const visible = suggestVisibleItems();
+  const moreAbove = suggest.offset > 0;
+  const moreBelow = suggest.offset + MAX_SUGGEST < total;
 
-  // Category header
+  // Category header with count + scroll hint
+  const scrollHint = total > MAX_SUGGEST ? ` ${suggest.offset + 1}-${suggest.offset + visible.length}/${total}` : '';
   const category = context === 'root'
-    ? chalk.dim(' Tools ')
-    : chalk.dim(' Commands ');
+    ? chalk.dim(` Tools${scrollHint} `)
+    : chalk.dim(` Commands${scrollHint} `);
 
   stdout.write(' '.repeat(pad) + category + '┌' + '─'.repeat(bw - category.length + stripAnsi(category).length - 2) + '┐' + '\x1b[0K\n');
 
-  for (let i = 0; i < suggest.items.length; i++) {
-    const item = suggest.items[i];
-    const is = i === suggest.sel;
+  // Scroll-up indicator
+  if (moreAbove) {
+    stdout.write(' '.repeat(pad) + `│ ${chalk.dim('▲  more...')}${' '.repeat(bw - 13)}│\x1b[0K\n`);
+  }
+
+  for (let vi = 0; vi < visible.length; vi++) {
+    const item = visible[vi];
+    const globalIdx = suggest.offset + vi;
+    const is = globalIdx === suggest.sel;
     const arrow = is ? chalk.cyan('❯') : ' ';
     const name = is ? chalk.bold(item.display) : item.display;
     const nameLen = stripAnsi(item.display).length;
@@ -203,6 +234,12 @@ function renderBox() {
       stdout.write(' '.repeat(pad) + `│ ${arrow}${name}${' '.repeat(sp)}${chalk.dim(desc)} │\x1b[0K\n`);
     }
   }
+
+  // Scroll-down indicator
+  if (moreBelow) {
+    stdout.write(' '.repeat(pad) + `│ ${chalk.dim('▼  more...')}${' '.repeat(bw - 13)}│\x1b[0K\n`);
+  }
+
   stdout.write(' '.repeat(pad) + '└' + '─'.repeat(bw - 2) + '┘' + '\x1b[0K\n');
 }
 
@@ -211,7 +248,14 @@ function render(clear = true) {
   if (clear) stdout.write('\x1b[0J');
 
   // Layout: topBorder(1) + output + spinner(1) + box + separator(1) + prompt(1) + hint(1) + bottomBorder(1)
-  const boxH = suggest.visible ? suggest.items.length + 2 : 0;
+  // Box height: visible items + header/footer lines + scroll indicators
+  let boxH = 0;
+  if (suggest.visible && suggest.items.length > 0) {
+    const visible = suggestVisibleItems();
+    boxH = visible.length + 2; // header + footer lines
+    if (suggest.offset > 0) boxH++; // ▲ more...
+    if (suggest.offset + MAX_SUGGEST < suggest.items.length) boxH++; // ▼ more...
+  }
   const spinH = workingText ? 1 : 0;
   const overhead = 5 + boxH + spinH; // top + sep + prompt + hint + bottom = 5
   const avail = Math.max(0, th - overhead);
@@ -346,7 +390,7 @@ async function dispatch(raw) {
           suggest.items = options.map(o => ({
             value: o.value, display: `  ${o.label || o.value}`, desc: o.hint || '',
           }));
-          suggest.sel = 0;
+          suggest.sel = 0; suggest.offset = 0;
           suggest.visible = true;
           render(true);
         } else if (type === 'text') {
@@ -390,7 +434,7 @@ async function dispatch(raw) {
             suggest.items = filtered.slice(0, 12).map(s => ({
               value: s.value, display: `  ${s.label || s.value}`, desc: s.desc || '',
             }));
-            suggest.sel = 0;
+            suggest.sel = 0; suggest.offset = 0;
             suggest.visible = true;
             return;
           }
@@ -414,9 +458,11 @@ async function dispatch(raw) {
             render(true);
           } else if (key === '\x1b[A' && suggest.sel > 0) {
             suggest.sel--;
+            scrollToIndex(suggest.sel);
             render(false);
           } else if (key === '\x1b[B' && suggest.sel < suggest.items.length - 1) {
             suggest.sel++;
+            scrollToIndex(suggest.sel);
             render(false);
           }
           return;
@@ -460,9 +506,11 @@ async function dispatch(raw) {
             render(true);
           } else if (key === '\x1b[A' && suggest.visible && suggest.sel > 0) {
             suggest.sel--;
+            scrollToIndex(suggest.sel);
             render(false);
           } else if (key === '\x1b[B' && suggest.visible && suggest.sel < suggest.items.length - 1) {
             suggest.sel++;
+            scrollToIndex(suggest.sel);
             render(false);
           } else if (key === '\x7f') {
             if (input.cursor > 0) {

@@ -1,61 +1,63 @@
 # WiFi Tool
 
-Show connected WiFi network details, reveal saved passwords from Keychain, and scan nearby networks.
+Show connected WiFi network details, reveal saved passwords from Keychain, and scan nearby networks. Works on both Intel and Apple Silicon Macs.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `status` | Show current connection — SSID, IP, router, DNS, signal strength, channel |
-| `password` | Reveal the WiFi password from macOS Keychain |
-| `scan` | Scan for nearby WiFi networks with signal bars |
-| `info` | Show all WiFi interface details from `airport -I` |
+| `status` | Show connection details — IP, router, DNS, signal, channel, PHY mode |
+| `password` | Reveal WiFi password from macOS Keychain (pick from known networks) |
+| `scan` | Scan nearby WiFi networks with signal bars |
+| `info` | Show WiFi interface — card type, firmware, MAC, power state |
 
 ## Usage
 
 ```
-devkit[wifi]> status                  # Connected network info
-devkit[wifi]> password                # Reveal password for current SSID
-devkit[wifi]> scan                    # Nearby networks with signal strength
-devkit[wifi]> info                    # Raw airport -I output
+devkit[wifi]> status                  # Connection details
+devkit[wifi]> password                # Pick network → reveal password
+devkit[wifi]> scan                    # Nearby networks with signal bars
+devkit[wifi]> info                    # Interface hardware details
 ```
+
+## macOS compatibility
+
+| macOS version | SSID detection | Scan engine |
+|---------------|---------------|-------------|
+| Intel / older macOS | `networksetup -getairportnetwork` | `airport -s` |
+| Apple Silicon / macOS 26+ | Hidden by OS (shows all details except SSID) | `system_profiler SPAirPortDataType` |
+
+On newer macOS, the SSID is redacted by the system — status shows all wireless details (channel, signal, PHY, security) and the password command lets you pick from your known networks list.
 
 ## Status output
 
 ```
-  WiFi Status: MyNetwork
+  WiFi Status: Connected
 
   ● SSID               MyNetwork
-  ● IP address         192.168.1.42
+  ● IP address         192.168.18.4
   ● Subnet mask        255.255.255.0
-  ● Router             192.168.1.1
-  ● MAC (Wi-Fi)        aa:bb:cc:dd:ee:ff
-  ● Channel            36 (5 GHz)
-  ● Max rate           866 Mbps
-  ● Signal             -47 dBm  ▂▄▆█
+  ● Router             192.168.18.1
+  ● PHY Mode          802.11ax
+  ● Channel           149 (5GHz, 80MHz)
+  ● Security          WPA2 Personal
+  ● Signal / Noise    -55 dBm / -93 dBm
+  ● TX Rate           720 Mbps
 
   Use: wifi password  — to reveal the password
 ```
 
 ## Password
 
-Retrieved from macOS Keychain via `security find-generic-password`. If you're not currently connected to WiFi, you can type any SSID manually to look up its saved password.
+Retrieved from macOS Keychain via `security find-generic-password`. On newer macOS where the SSID is hidden, the tool shows your list of known/preferred networks to pick from.
 
 ```
 devkit[wifi]> password
-
-  Password: MyNetwork
-
+  → pick "MyNetwork" from the list of known networks
   🔑  hunter2
-
   (retrieved from macOS Keychain)
 ```
 
 ## Scan
 
-Shows nearby networks with:
-- Signal strength bars (▂▄▆█ green → yellow → red)
-- SSID, channel, security type
-- Current network marked with ●
-
-Uses the `airport` utility at `/System/Library/PrivateFrameworks/Apple80211.framework/`.
+Uses `system_profiler SPAirPortDataType` (all macOS versions) with `airport -s` fallback. Shows nearby networks with signal bars (▂▄▆█).

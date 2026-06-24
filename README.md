@@ -33,9 +33,8 @@ ln -s ~/cli-forge/devkit /usr/local/bin/devkit
 ### Run
 
 ```bash
-devkit            # Opens the interactive shell with all tools
-devkit help       # Show available tools
-devkit <tool>     # Launch a specific tool (legacy bash mode)
+devkit            # Launch the interactive shell
+devkit help       # Quick overview
 ```
 
 ## Using the shell

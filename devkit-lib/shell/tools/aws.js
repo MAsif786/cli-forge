@@ -687,7 +687,7 @@ async function execute(cmd) {
         return formatSecretLines(arg, result.data);
       }
 
-      // Interactive: list → pick → show → ask "another?" → recurse
+      // Interactive: inlineSelect with scroll-window (handles any number of secrets)
       const result = runAwsJson('secretsmanager list-secrets');
       if (!result.ok) return [chalk.red(`  ❌  ${result.error}`)];
       const secretList = result.data?.SecretList;
@@ -696,26 +696,19 @@ async function execute(cmd) {
       }
       if (secretList.length === 0) return [chalk.yellow('  No secrets found')];
 
-      const nameList = secretList.map(s => s.Name).filter(Boolean);
-
-      // Show listing (persists through inlineText render)
-      _appendOutput('');
-      _appendOutput(chalk.bold(`  Secrets Manager (${secretList.length}):`));
-      _appendOutput(chalk.dim('  ───────────────────────────────────────────────'));
-      for (const s of secretList) {
-        const sName = s.Name || '';
-        const date = s.LastChangedDate ? s.LastChangedDate.split('T')[0] : '';
-        _appendOutput(`  ${chalk.yellow('●')} ${chalk.bold(sName.padEnd(35))} ${chalk.dim(date)}`);
-        if (s.Description) _appendOutput(`    ${chalk.dim(s.Description)}`);
-      }
-
-      const pick = await inlineText('secrets (type name):', '', nameList);
+      // Use inlineSelect instead of dumping all names — scroll-window handles overflow
+      const pick = await inlineSelect(`Secrets (${secretList.length}):`, [
+        ...secretList.map(s => ({
+          value: s.Name,
+          label: s.Name,
+          hint: s.LastChangedDate ? s.LastChangedDate.split('T')[0] : '',
+        })),
+      ]);
       if (!pick) return [];
 
       // Show value and ask if they want another
       const valResult = runAwsJson(`secretsmanager get-secret-value --secret-id ${pick}`);
       if (!valResult.ok) {
-        // On error, re-show the list
         return [chalk.red(`  ❌  ${valResult.error}`), '', chalk.dim('  Type secrets to try again')];
       }
 

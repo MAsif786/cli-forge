@@ -69,6 +69,7 @@ Each tool has its own docs page with commands, usage examples, and prerequisites
 | `cleanup` | Disk space scanner — Docker, npm, pip, caches, Trash | [docs/cleanup.md](docs/cleanup.md) |
 | `db` | PostgreSQL, SQLite, MySQL client with schema autocomplete | [docs/db.md](docs/db.md) |
 | `ssh` | SSH config parser, host manager, key viewer | [docs/ssh.md](docs/ssh.md) |
+| `wifi` | WiFi details, password from Keychain, network scan | [docs/wifi.md](docs/wifi.md) |
 
 ## Plugin system
 

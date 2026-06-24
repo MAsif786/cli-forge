@@ -54,36 +54,21 @@ The shell is a TUI application. Type your way around — no menus to memorize.
 | `Tab` | Auto-complete from suggestion |
 | `Esc` | Cancel the current prompt / exit selection |
 
-### Core tools
+### Tools
 
-| Tool | Description |
-|------|-------------|
-| `aws` | AWS identity, S3, EC2, CloudWatch logs, Secrets Manager, profiles, regions, SSO login |
-| `port` | Scan/kill processes bound to ports |
-| `docker` | Container and image management |
-| `curl` | Interactive HTTP request builder |
-| `vpn` | OpenVPN connection manager |
-| `totp` | TOTP 2FA code manager with live timer |
-| `cleanup` | Free disk space — Docker, npm, pip, caches, Trash |
-| `db` | Database connection helper |
-| `ssh` | SSH config management |
+Each tool has its own docs page with commands, usage examples, and prerequisites.
 
-### AWS tool
-
-```
-devkit[aws]> secrets
-```
-
-Lists all secrets → type a name to view the value → smart JSON display with key-value highlighting. Type `e` (edit) to add/edit/delete keys interactively.
-
-```
-devkit[aws]> profile add
-devkit[aws]> profile fizza
-devkit[aws]> regions
-devkit[aws]> ec2
-```
-
-Profile and region are persisted to `~/.devkit/aws/state.json` between sessions.
+| Tool | Description | Docs |
+|------|-------------|------|
+| `aws` | AWS identity, S3, EC2, CloudWatch, Secrets Manager, profiles | [docs/aws.md](docs/aws.md) |
+| `port` | Port scanning, process kill, firewall rules, network checks | [docs/port.md](docs/port.md) |
+| `docker` | Container and image management | [docs/docker.md](docs/docker.md) |
+| `curl` | Interactive HTTP request builder | [docs/curl.md](docs/curl.md) |
+| `vpn` | OpenVPN connection manager | [docs/vpn.md](docs/vpn.md) |
+| `totp` | TOTP 2FA codes with live countdown timer | [docs/totp.md](docs/totp.md) |
+| `cleanup` | Disk space scanner — Docker, npm, pip, caches, Trash | [docs/cleanup.md](docs/cleanup.md) |
+| `db` | PostgreSQL, SQLite, MySQL client with schema autocomplete | [docs/db.md](docs/db.md) |
+| `ssh` | SSH config parser, host manager, key viewer | [docs/ssh.md](docs/ssh.md) |
 
 ## Plugin system
 

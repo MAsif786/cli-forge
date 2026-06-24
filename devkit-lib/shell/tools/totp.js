@@ -7,7 +7,6 @@ import { inlineSelect, inlineText } from '../inline.js';
 import { intro, outro, select, spinner, text, confirm, isCancel, cancel, note } from '@clack/prompts';
 import chalk from 'chalk';
 import { execFileSync, execSync } from 'child_process';
-import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';

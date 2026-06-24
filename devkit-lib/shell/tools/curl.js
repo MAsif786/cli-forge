@@ -3,8 +3,8 @@
  * devkit curl — Interactive HTTP Client (clack-powered)
  */
 import { defineTool } from '../tool-sdk.js';
-import { inlineSelect, inlineText } from '../inline.js';
-import { intro, outro, select, spinner, text, confirm, isCancel, cancel, note } from '@clack/prompts';
+import { inlineText } from '../inline.js';
+import { intro, outro, select, spinner, text, isCancel, note } from '@clack/prompts';
 import chalk from 'chalk';
 import { execSync } from 'child_process';
 

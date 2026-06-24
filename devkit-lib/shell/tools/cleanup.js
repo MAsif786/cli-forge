@@ -3,7 +3,7 @@
  * devkit cleanup — Mac Storage Cleanup (clack-powered)
  */
 import { defineTool } from '../tool-sdk.js';
-import { intro, outro, select, spinner, multiselect, text, confirm, isCancel, cancel, note } from '@clack/prompts';
+import { intro, outro, select, spinner, multiselect, confirm, isCancel, note } from '@clack/prompts';
 import chalk from 'chalk';
 import { execFileSync, execSync } from 'child_process';
 import fs from 'fs';

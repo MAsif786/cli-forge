@@ -7,7 +7,7 @@ import { defineTool } from '../tool-sdk.js';
 import { inlineText } from '../inline.js';
 import { intro, outro, select, spinner, text, confirm, isCancel, cancel, note } from '@clack/prompts';
 import chalk from 'chalk';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';

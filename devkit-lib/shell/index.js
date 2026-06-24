@@ -129,24 +129,33 @@ function stopWorking() {
 // ─── Suggestions ───────────────────────────────────────
 
 const suggest = { items: [], sel: 0, offset: 0, visible: false };
-const MAX_SUGGEST = 14; // max items visible at once
+
+// Dynamic max: leave room for output lines + spinner + separator + prompt + hint + borders
+function getMaxSuggest() {
+  const overhead = 8; // top border + separator + prompt + hint + bottom border + padding
+  const spinH = workingText ? 1 : 0;
+  const outputLines = Math.min(lines.length, 4); // at most 4 output lines shown when menu is open
+  return Math.max(6, Math.min(20, th - overhead - spinH - outputLines));
+}
 
 function suggestVisibleItems() {
+  const max = getMaxSuggest();
   const start = suggest.offset;
-  const end = Math.min(start + MAX_SUGGEST, suggest.items.length);
+  const end = Math.min(start + max, suggest.items.length);
   return suggest.items.slice(start, end);
 }
 
 function scrollToIndex(idx) {
+  const max = getMaxSuggest();
   // Keep selected item in the visible window
   if (idx < suggest.offset) {
     suggest.offset = idx;
-  } else if (idx >= suggest.offset + MAX_SUGGEST) {
-    suggest.offset = idx - MAX_SUGGEST + 1;
+  } else if (idx >= suggest.offset + max) {
+    suggest.offset = idx - max + 1;
   }
   // Clamp offset
   if (suggest.offset < 0) suggest.offset = 0;
-  const maxOffset = Math.max(0, suggest.items.length - MAX_SUGGEST);
+  const maxOffset = Math.max(0, suggest.items.length - max);
   if (suggest.offset > maxOffset) suggest.offset = maxOffset;
 }
 
@@ -201,11 +210,12 @@ function renderBox() {
   const pad = 2;
   const total = suggest.items.length;
   const visible = suggestVisibleItems();
+  const maxVis = getMaxSuggest();
   const moreAbove = suggest.offset > 0;
-  const moreBelow = suggest.offset + MAX_SUGGEST < total;
+  const moreBelow = suggest.offset + maxVis < total;
 
   // Category header with count + scroll hint
-  const scrollHint = total > MAX_SUGGEST ? ` ${suggest.offset + 1}-${suggest.offset + visible.length}/${total}` : '';
+  const scrollHint = total > maxVis ? ` ${suggest.offset + 1}-${suggest.offset + visible.length}/${total}` : '';
   const category = context === 'root'
     ? chalk.dim(` Tools${scrollHint} `)
     : chalk.dim(` Commands${scrollHint} `);
@@ -254,7 +264,7 @@ function render(clear = true) {
     const visible = suggestVisibleItems();
     boxH = visible.length + 2; // header + footer lines
     if (suggest.offset > 0) boxH++; // ▲ more...
-    if (suggest.offset + MAX_SUGGEST < suggest.items.length) boxH++; // ▼ more...
+    if (suggest.offset + getMaxSuggest() < suggest.items.length) boxH++; // ▼ more...
   }
   const spinH = workingText ? 1 : 0;
   const overhead = 5 + boxH + spinH; // top + sep + prompt + hint + bottom = 5

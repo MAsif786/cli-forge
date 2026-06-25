@@ -6,7 +6,6 @@
  */
 import { defineTool } from '../tool-sdk.js';
 import { inlineSelect, inlineText } from '../inline.js';
-import { intro, outro, select, note, isCancel } from '@clack/prompts';
 import chalk from 'chalk';
 import { execFileSync } from 'child_process';
 import fs from 'fs';
@@ -335,47 +334,12 @@ async function execute(cmd) {
 
 // ─── Main menu ────────────────────────────────────────────
 
-async function main() {
-  intro(chalk.bold('devkit wifi — WiFi Network Manager'));
-
-  while (true) {
-    const connected = hasIP();
-    const wifiOn = wifiIsOn();
-    const ssid = getSSIDLegacy();
-    let statusTag;
-    if (!wifiOn) statusTag = 'Wi-Fi OFF';
-    else if (!connected) statusTag = 'not connected';
-    else statusTag = ssid ? `connected to ${ssid}` : 'connected (SSID hidden)';
-
-    const action = await select({
-      message: `Choose an action (${statusTag}):`,
-      options: [
-        { value: 'status',   label: '📶  Current status',       hint: connected ? 'show details' : 'view state' },
-        { value: 'password', label: '🔑  Show password',        hint: ssid ? `reveal password for ${ssid}` : 'pick from known networks' },
-        { value: 'scan',     label: '📡  Scan networks',        hint: 'list nearby WiFi networks' },
-        { value: 'info',     label: '📋  Full interface info',  hint: 'card type, firmware, MAC' },
-        { value: '__back',   label: '←  Back to devkit',        hint: '' },
-      ],
-    });
-
-    if (isCancel(action) || action === '__back') break;
-
-    const lines = await execute(action);
-    if (lines && lines.length > 0) {
-      note(lines.join('\n'), 'WiFi');
-    }
-  }
-
-  outro('WiFi done');
-}
-
 // ─── Tool definition ──────────────────────────────────────
 
 const tool = defineTool({
-  manifest: { name: 'wifi', label: '📶  WiFi', hint: 'show network details & passwords' },
+  manifest: { name: 'wifi', label: '📶  WiFi', hint: 'show network details & passwords', keywords: ['wireless', 'network', 'wlan', 'airport', 'ssid', 'password', 'scan', 'keychain', 'signal'] },
   commands,
   execute,
-  main,
 });
-export { commands, execute, main };
+export { commands, execute };
 export const manifest = tool.manifest;

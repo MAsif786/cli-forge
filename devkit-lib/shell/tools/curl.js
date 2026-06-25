@@ -4,7 +4,6 @@
  */
 import { defineTool } from '../tool-sdk.js';
 import { inlineText } from '../inline.js';
-import { intro, outro, select, spinner, text, isCancel, note } from '@clack/prompts';
 import chalk from 'chalk';
 import { execSync } from 'child_process';
 
@@ -106,135 +105,10 @@ async function collectItems(message, hint) {
   return items;
 }
 
-async function main() {
-  intro(chalk.bold('devkit curl — Interactive HTTP Client'));
-
-  let repeatRequest = null;
-
-  while (true) {
-    let method, url, headers, params, body;
-
-    if (repeatRequest) {
-      method = repeatRequest.method;
-      url = repeatRequest.url;
-      headers = repeatRequest.headers;
-      params = repeatRequest.params;
-      body = repeatRequest.body;
-      repeatRequest = null;
-      note(`Repeating: ${method} ${url}`, 'Repeat');
-    } else {
-      // Method
-      method = await text({
-        message: 'HTTP Method:',
-        initialValue: 'GET',
-        validate: v => v ? undefined : 'Required',
-      });
-      if (isCancel(method)) break;
-      method = method.toUpperCase();
-
-      // URL
-      url = await text({
-        message: 'URL:',
-        validate: v => v ? undefined : 'Required',
-      });
-      if (isCancel(url)) break;
-
-      // Headers
-      headers = await collectItems('Header', 'e.g. Content-Type: application/json');
-      if (headers === null) break;
-
-      // Query params
-      params = await collectItems('Query param', 'e.g. key=value');
-      if (params === null) break;
-
-      // Body (skip for GET, HEAD)
-      body = '';
-      if (method !== 'GET' && method !== 'HEAD') {
-        body = await text({
-          message: 'Request body (JSON or text, empty to skip):',
-        });
-        if (isCancel(body)) break;
-      }
-    }
-
-    // Build final URL
-    let finalUrl = url;
-    if (params.length > 0) {
-      const qs = params.join('&');
-      finalUrl += url.includes('?') ? '&' + qs : '?' + qs;
-    }
-
-    // Build curl args
-    const curlArgs = ['-s', '-S', '-i', '-X', method, finalUrl];
-    for (const h of headers) curlArgs.push('-H', h);
-    if (body) curlArgs.push('-d', body);
-
-    // Show request
-    let reqDisplay = `curl -X ${method} \\\n  ${finalUrl}`;
-    for (const h of headers) reqDisplay += ` \\\n  -H "${h}"`;
-    if (body) reqDisplay += ` \\\n  -d '${body}'`;
-    note(reqDisplay, 'Request');
-
-    // Execute
-    const sp = spinner();
-    sp.start('Sending request...');
-
-    let response;
-    try {
-      response = execSync(`curl ${curlArgs.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ')} 2>&1`, { encoding: 'utf-8', timeout: 30000 });
-      sp.stop('Response received');
-    } catch (e) {
-      sp.stop('Failed');
-      response = e.stdout || e.message || 'Unknown error';
-    }
-
-    // Split headers from body
-    const headerEnd = response.indexOf('\n\n');
-    const respHeaders = headerEnd >= 0 ? response.slice(0, headerEnd) : response;
-    let respBody = headerEnd >= 0 ? response.slice(headerEnd + 2) : '';
-
-    // Show response
-    let display = respHeaders.split('\n').map(l => `  ${l}`).join('\n');
-    if (respBody) {
-      display += '\n\n';
-      if (hasJq()) {
-        try {
-          const pretty = execSync(`echo ${JSON.stringify(respBody)} | jq .`, { encoding: 'utf-8' });
-          display += pretty.split('\n').map(l => `  ${l}`).join('\n');
-        } catch {
-          display += respBody.split('\n').map(l => `  ${l}`).join('\n');
-        }
-      } else {
-        display += respBody.split('\n').map(l => `  ${l}`).join('\n');
-      }
-    }
-    note(display, 'Response');
-
-    // Next action
-    const next = await select({
-      message: 'What next?',
-      options: [
-        { value: 'new', label: '🔁  New request' },
-        { value: 'repeat', label: '🔂  Repeat this request' },
-        { value: '__back', label: '←  Back to devkit' },
-      ],
-    });
-
-    if (isCancel(next) || next === '__back') break;
-
-    if (next === 'repeat') {
-      repeatRequest = { method, url, headers, params, body };
-    }
-  }
-
-  outro('Curl done');
-}
-
 const tool = defineTool({
-  manifest: { name: 'curl', label: '🌐  HTTP Client', hint: 'Postman-like requests' },
+  manifest: { name: 'curl', label: '🌐  HTTP Client', hint: 'Postman-like requests', keywords: ['http', 'https', 'rest', 'api', 'post', 'get', 'request', 'web', 'endpoint', 'fetch', 'download'] },
   commands,
   execute,
-  main,
 });
-export { commands, execute, main };
+export { commands, execute };
 export const manifest = tool.manifest;

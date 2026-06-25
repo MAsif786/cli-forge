@@ -3,7 +3,6 @@
  * devkit cleanup — Mac Storage Cleanup (clack-powered)
  */
 import { defineTool } from '../tool-sdk.js';
-import { intro, outro, select, spinner, multiselect, confirm, isCancel, note } from '@clack/prompts';
 import chalk from 'chalk';
 import { execFileSync, execSync } from 'child_process';
 import fs from 'fs';
@@ -303,78 +302,10 @@ async function cleanItems(selectedKeys) {
 
 // ─── Main ───────────────────────────────────────────────
 
-async function main() {
-  intro(chalk.bold('devkit cleanup — Mac Storage Cleanup'));
-
-  const sp = spinner();
-  sp.start('Scanning system...');
-
-  const items = [];
-
-  const dockerInfo = await scanDocker(items);
-  await scanNpm(items);
-  await scanPip(items);
-  await scanHomebrew(items);
-  await scanCaches(items);
-  await scanTrash(items);
-  await scanOldVenvs(items);
-  await scanNodeModules(items);
-  await scanDeveloper(items);
-  await scanDownloads(items);
-
-  sp.stop('Scan complete');
-
-  // Show disk before
-  const dfBefore = execFileSync('df', ['-h', '/'], { encoding: 'utf-8' });
-  const availBefore = dfBefore.trim().split('\n')[1].split(/\s+/)[3];
-  note(`Available: ${availBefore}`, 'Disk');
-
-  if (items.length === 0) {
-    note('Nothing to clean — system is tidy!', 'Cleanup');
-    outro('Done');
-    return;
-  }
-
-  // Show summary
-  const summaryLines = items.map(i => chalk.yellow(`  • ${i.label}: ${i.size}`)).join('\n');
-  note(summaryLines, 'Items found');
-
-  // Multi-select
-  const selected = await multiselect({
-    message: 'Select items to clean (Space to toggle, Enter to confirm):',
-    options: [
-      ...items.map(item => ({ value: item.key, label: `${item.label} (${item.size})` })),
-    ],
-    required: false,
-  });
-
-  if (isCancel(selected) || !selected || selected.length === 0) {
-    note('Cancelled — nothing cleaned', 'Cleanup');
-    outro('Done');
-    return;
-  }
-
-  // Clean selected items
-  const results = await cleanItems(selected);
-
-  // Show results
-  if (results.length > 0) {
-    note(results.map(r => `  ${chalk.green('✓')} ${r}`).join('\n'), 'Cleaned');
-  }
-
-  // Show disk after
-  const dfAfter = execFileSync('df', ['-h', '/'], { encoding: 'utf-8' });
-  const availAfter = dfAfter.trim().split('\n')[1].split(/\s+/)[3];
-  note(`${chalk.cyan(availBefore)} → ${chalk.green(availAfter)}`, 'Disk available');
-
-  outro('Cleanup complete');
-}
-
 const tool = defineTool({
-  manifest: { name: 'cleanup', label: '🧹  Disk Cleanup', hint: 'scan and free up space' },
+  manifest: { name: 'cleanup', label: '🧹  Disk Cleanup', hint: 'scan and free up space', keywords: ['disk', 'space', 'free', 'delete', 'cache', 'storage', 'purge', 'clear', 'trash', 'npm', 'brew'] },
   commands,
   execute,
-  main,
 });
-export { commands, execute, main };
+export { commands, execute };
 export const manifest = tool.manifest;

@@ -6,7 +6,7 @@
  */
 import { defineTool } from '../tool-sdk.js';
 import { inlineSelect, inlineText } from '../inline.js';
-import { intro, outro, select, spinner, text, confirm, isCancel, cancel, note } from '@clack/prompts';
+import { cancel, confirm, isCancel, note, select, spinner, text } from '@clack/prompts';
 import chalk from 'chalk';
 import { execFileSync, execSync, spawn } from 'child_process';
 
@@ -390,61 +390,11 @@ async function diskUsage() {
 
 // ─── Main — Full clack menu ────────────────────────────
 
-async function main() {
-  if (!isDockerReady()) {
-    cancel('Docker daemon not running');
-    return;
-  }
-
-  intro(chalk.bold('devkit docker — Interactive Docker Manager'));
-
-  while (true) {
-    const action = await select({
-      message: 'Choose an action:',
-      options: [
-        { value: '__sec1', label: '──  Containers  ──', hint: '' },
-        { value: 'list',    label: '📋  List running containers', hint: '' },
-        { value: 'listall', label: '📋  List all containers', hint: '' },
-        { value: 'start',   label: '▶  Start a container', hint: '' },
-        { value: 'stop',    label: '⏹  Stop a container', hint: '' },
-        { value: 'restart', label: '🔄  Restart a container', hint: '' },
-        { value: 'rm',      label: '🗑  Remove a container', hint: '' },
-        { value: 'logs',    label: '📜  View container logs', hint: '' },
-        { value: '__sec2',  label: '──  Images  ──', hint: '' },
-        { value: 'images',  label: '📦  List images', hint: '' },
-        { value: 'rmi',     label: '🗑  Remove an image', hint: '' },
-        { value: 'prune',   label: '🧹  Prune dangling images', hint: '' },
-        { value: '__sec3',  label: '──  System  ──', hint: '' },
-        { value: 'sysprune',label: '🧹  System prune', hint: 'containers, images, volumes, build cache' },
-        { value: 'df',      label: '💾  System disk usage', hint: '' },
-        { value: '__back',  label: '←  Back to devkit', hint: '' },
-      ],
-    });
-
-    if (isCancel(action) || action === '__back') break;
-
-    switch (action) {
-      case 'list': await listContainers(false); break;
-      case 'listall': await listContainers(true); break;
-      case 'start': case 'stop': case 'restart': case 'rm': await containerAction(action); break;
-      case 'logs': await viewLogs(); break;
-      case 'images': await listImages(); break;
-      case 'rmi': await removeImage(); break;
-      case 'prune': await pruneImages(); break;
-      case 'sysprune': await systemPrune(); break;
-      case 'df': await diskUsage(); break;
-    }
-  }
-
-  outro('Docker done');
-}
-
 const tool = defineTool({
-  manifest: { name: 'docker', label: '🐳  Docker', hint: 'container lifecycle, logs, images' },
+  manifest: { name: 'docker', label: '🐳  Docker', hint: 'container lifecycle, logs, images', keywords: ['container', 'compose', 'image', 'k8s', 'podman', 'prune', 'daemon', 'registry'] },
   commands,
   execute,
-  main,
   followLogs,
 });
-export { commands, execute, main, followLogs };
+export { commands, execute, followLogs };
 export const manifest = tool.manifest;

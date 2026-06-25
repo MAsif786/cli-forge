@@ -5,7 +5,6 @@
  */
 import { defineTool } from '../tool-sdk.js';
 import { inlineSelect, inlineText } from '../inline.js';
-import { intro, outro, select, spinner, text, confirm, isCancel, note } from '@clack/prompts';
 import chalk from 'chalk';
 import { execFileSync, execSync } from 'child_process';
 import fs from 'fs';
@@ -299,150 +298,12 @@ async function execute(cmd) {
 
 // ─── Main menu ────────────────────────────────────────────
 
-async function main() {
-  intro(chalk.bold('devkit ssh — SSH Connection Manager'));
-
-  while (true) {
-    const action = await select({
-      message: 'Choose an action:',
-      options: [
-        { value: 'list',    label: '📋  List hosts',              hint: 'from ~/.ssh/config' },
-        { value: 'connect', label: '🔗  Connect to host',         hint: 'start an SSH session' },
-        { value: 'add',     label: '➕  Add SSH config entry',     hint: 'new host to ~/.ssh/config' },
-        { value: 'remove',  label: '🗑  Remove SSH config entry',  hint: 'delete from config' },
-        { value: '__sep',   label: '──  Keys  ──' },
-        { value: 'key',     label: '🔑  Show SSH keys',           hint: 'fingerprints & status' },
-        { value: 'copy',    label: '📋  Copy public key',         hint: 'to clipboard' },
-        { value: '__back',  label: '←  Back to devkit',           hint: '' },
-      ],
-    });
-
-    if (isCancel(action) || action === '__back') break;
-
-    switch (action) {
-      case 'list': {
-        const hosts = getHostList();
-        if (hosts.length === 0) { note('No hosts in ~/.ssh/config', 'SSH Config'); break; }
-        const lines = hosts.map(h => {
-          const dest = h.hostName || h.pattern;
-          const portStr = h.port !== 22 ? `:${h.port}` : '';
-          const userStr = h.user ? `${h.user}@` : '';
-          return `${h.pattern.padEnd(22)} ${chalk.dim(`${userStr}${dest}${portStr}`)}`;
-        }).join('\n');
-        note(lines, `📋  ${hosts.length} host(s)`);
-        break;
-      }
-
-      case 'connect': {
-        const hosts = getHostList();
-        if (hosts.length === 0) { note('No hosts configured.', 'SSH'); break; }
-        const options = hosts.map(h => ({ value: h.pattern, label: h.pattern }));
-        options.push({ value: '__back', label: '← Back' });
-        const sel = await select({ message: 'Select host:', options });
-        if (isCancel(sel) || sel === '__back') break;
-
-        note(`Connecting to ${sel}...\n(Press Ctrl+D or type "exit" to end session)`, 'SSH');
-
-        const wasRaw = process.stdin.isRaw;
-        if (wasRaw) process.stdin.setRawMode(false);
-        console.log(); // blank line before SSH takes over
-
-        try {
-          execSync(`ssh ${sshEscapeArg(sel)}`, { stdio: 'inherit' });
-        } catch {}
-
-        if (wasRaw) process.stdin.setRawMode(true);
-        break;
-      }
-
-      case 'add': {
-        const hostname = await text({ message: 'Host alias:', validate: v => v ? undefined : 'Required' });
-        if (isCancel(hostname)) break;
-        const hostName = await text({ message: 'Hostname / IP:', validate: v => v ? undefined : 'Required' });
-        if (isCancel(hostName)) break;
-        const user = await text({ message: 'User:', initialValue: os.userInfo().username });
-        if (isCancel(user)) break;
-        const port = await text({ message: 'Port:', initialValue: '22' });
-        if (isCancel(port)) break;
-        const idFile = await text({ message: 'Identity file (optional):', placeholder: 'skip' });
-        if (isCancel(idFile)) break;
-
-        const sp = spinner();
-        sp.start('Adding to ~/.ssh/config...');
-        let entry = `\nHost ${hostname}\n  HostName ${hostName}\n  User ${user}\n  Port ${port}\n`;
-        if (idFile) entry += `  IdentityFile ${idFile}\n`;
-        ensureDir(SSH_DIR);
-        fs.appendFileSync(SSH_CONFIG, entry);
-        sp.stop(`Added ${hostname}`);
-        break;
-      }
-
-      case 'remove': {
-        const hosts = getHostList();
-        if (hosts.length === 0) { note('No hosts to remove.', 'Remove'); break; }
-        const options = hosts.map(h => ({ value: h.pattern, label: h.pattern }));
-        options.push({ value: '__back', label: '← Back' });
-        const sel = await select({ message: 'Select host to remove:', options });
-        if (isCancel(sel) || sel === '__back') break;
-
-        const ok = await confirm({ message: `Remove "${sel}" from config?`, initialValue: false });
-        if (!ok) { note('Cancelled', 'Remove'); break; }
-
-        const content = fs.readFileSync(SSH_CONFIG, 'utf-8');
-        const lines = content.split('\n');
-        const result = [];
-        let skip = false;
-        for (const line of lines) {
-          const t = line.trim();
-          if (t.toLowerCase().startsWith('host ') && t.split(/\s+/).slice(1).join(' ') === sel) { skip = true; continue; }
-          if (skip && (t.toLowerCase().startsWith('host ') || t.toLowerCase().startsWith('match '))) skip = false;
-          if (!skip) result.push(line);
-        }
-        fs.writeFileSync(SSH_CONFIG, result.join('\n') + '\n');
-        note('', `🗑  Removed "${sel}"`);
-        break;
-      }
-
-      case 'key': {
-        const keys = getDefaultKeys();
-        if (keys.length === 0) { note('No SSH keys found in ~/.ssh/', 'SSH Keys'); break; }
-        const lines = keys.map(k => {
-          const fp = getSSHKeyFingerprint(k);
-          const privPath = k.replace(/\.pub$/, '');
-          const exists = fs.existsSync(privPath);
-          const status = exists ? chalk.green('✓') : chalk.yellow('✗ (private missing)');
-          return `${status} ${chalk.bold(path.basename(k))}\n   ${fp || 'unknown'}`;
-        }).join('\n');
-        note(lines, '🔑  SSH Keys');
-        break;
-      }
-
-      case 'copy': {
-        const keys = getDefaultKeys();
-        if (keys.length === 0) { note('No public keys found', 'Copy Key'); break; }
-        const target = keys.length === 1 ? keys[0] : await select({
-          message: 'Select key:',
-          options: keys.map(k => ({ value: k, label: path.basename(k) })),
-        });
-        if (isCancel(target)) break;
-        const pubkey = fs.readFileSync(target, 'utf-8').trim();
-        execSync('pbcopy', { input: pubkey, stdio: ['pipe', 'ignore', 'ignore'] });
-        note('', `✅  ${path.basename(target)} copied`);
-        break;
-      }
-    }
-  }
-
-  outro('SSH done');
-}
-
 // ─── Tool definition ──────────────────────────────────────
 
 const tool = defineTool({
-  manifest: { name: 'ssh', label: '🔗  SSH Manager', hint: 'connect, manage config & keys' },
+  manifest: { name: 'ssh', label: '🔗  SSH Manager', hint: 'connect, manage config & keys', keywords: ['remote', 'shell', 'connect', 'server', 'host', 'config', 'key', 'scp', 'sftp', 'known_hosts'] },
   commands,
   execute,
-  main,
 });
-export { commands, execute, main };
+export { commands, execute };
 export const manifest = tool.manifest;

@@ -4,7 +4,7 @@
  */
 import { defineTool } from '../tool-sdk.js';
 import { inlineSelect, inlineText } from '../inline.js';
-import { intro, outro, select, spinner, text, confirm, isCancel, cancel, note } from '@clack/prompts';
+import { select, spinner, text, confirm, isCancel, cancel, note } from '@clack/prompts';
 import chalk from 'chalk';
 import { execFileSync, execSync } from 'child_process';
 import path from 'path';
@@ -145,7 +145,6 @@ async function liveCodes() {
       if (code && code !== '??????') {
         try {
           execSync('pbcopy', { input: code, stdio: ['pipe', 'ignore', 'ignore'] });
-          // Flash "copied" on the screen by temporarily changing the bottom line
           running = false; // exit the loop
           process.stdout.write('\x1b[?25h\n');
           console.log(chalk.green(`  📋  ${code.slice(0,3)} ${code.slice(3)} copied for ${accounts[idx].name}`));
@@ -393,56 +392,10 @@ async function listAccounts() {
   note(lines, `📋  ${accounts.length} account(s)`);
 }
 
-async function main() {
-  intro(chalk.bold('devkit totp — TOTP 2FA Manager'));
-
-  while (true) {
-    const action = await select({
-      message: 'Choose an action:',
-      options: [
-        { value: 'live',   label: '🔑  Live codes',      hint: 'view all with timer' },
-        { value: 'copy',   label: '📋  Copy code',        hint: 'copy TOTP code to clipboard' },
-        { value: 'add',    label: '➕  Add account',      hint: 'manual entry' },
-        { value: 'import', label: '📥  Import URI',       hint: 'otpauth:// or migration' },
-        { value: 'remove', label: '🗑️  Remove account',   hint: 'delete saved account' },
-        { value: 'list',   label: '📋  List accounts',    hint: 'show all saved' },
-        { value: '__back', label: '←  Back to devkit',    hint: '' },
-      ],
-    });
-
-    if (isCancel(action) || action === '__back') break;
-
-    switch (action) {
-      case 'live': await liveCodes(); break;
-      case 'copy': {
-        const accounts = readSecrets();
-        if (accounts.length === 0) { note('No accounts saved.', 'Copy'); break; }
-        const target = await select({
-          message: 'Select account:',
-          options: accounts.map(a => ({ value: a.name, label: a.name })),
-        });
-        if (isCancel(target)) break;
-        const code = generateCode(target);
-        if (!code) { cancel('Failed to generate code'); break; }
-        execSync('pbcopy', { input: code, stdio: ['pipe', 'ignore', 'ignore'] });
-        note(code, `📋  Copied "${target}"`);
-        break;
-      }
-      case 'add': await addAccount(); break;
-      case 'import': await importUri(); break;
-      case 'remove': await removeAccount(); break;
-      case 'list': await listAccounts(); break;
-    }
-  }
-
-  outro('TOTP done');
-}
-
 const tool = defineTool({
-  manifest: { name: 'totp', label: '🔑  TOTP 2FA', hint: 'manage accounts & live codes' },
+  manifest: { name: 'totp', label: '🔑  TOTP 2FA', hint: 'manage accounts & live codes', keywords: ['2fa', 'mfa', 'otp', 'authenticator', 'auth', 'codes', 'two-factor', 'one-time', 'token'] },
   commands,
   execute,
-  main,
 });
-export { commands, execute, main };
+export { commands, execute };
 export const manifest = tool.manifest;

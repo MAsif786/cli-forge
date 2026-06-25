@@ -46,6 +46,7 @@ async function discoverTools() {
           name: m.name || file.replace('.js', ''),
           label: m.label || file.replace('.js', ''),
           hint: m.hint || `${mod.commands.length} command(s)`,
+          keywords: m.keywords || [],
           mod,
         });
       }
@@ -168,21 +169,23 @@ function buildSuggestions(text) {
   let pool;
   if (context === 'root') {
     // Root: tools (+ global cmds when / is typed)
-    const tools = TOOLS.map(t => ({ value: t.name, display: t.label, desc: t.hint }));
+    const tools = TOOLS.map(t => ({ value: t.name, display: t.label, desc: t.hint, keywords: t.keywords || [] }));
     if (text.startsWith('/')) {
       // Strip leading / to match tool names
-      const query = text.slice(1);
+      const query = text.slice(1).toLowerCase();
       const cmds = GLOBAL_CMDS.filter(c => c.name.startsWith(text)).map(c => ({ value: c.name, display: `  ${c.name}`, desc: c.desc }));
-      const matchedTools = query ? tools.filter(t => t.value.startsWith(query)) : tools;
+      const matchedTools = query
+        ? tools.filter(t => t.value.startsWith(query) || (t.keywords || []).some(k => k.startsWith(query)))
+        : tools;
       pool = [...cmds, ...matchedTools];
     } else {
-      pool = tools.filter(t => t.value.startsWith(text));
+      const q = text.toLowerCase();
+      pool = tools.filter(t => t.value.startsWith(q) || (t.keywords || []).some(k => k.startsWith(q)));
     }
   } else {
-    // Tool context: show tool commands (+ back / menu helpers)
+    // Tool context: show tool commands (+ back helper)
     const cmds = contextCmdList.map(c => ({ value: c.name, display: `  ${c.name}`, desc: c.desc }));
     const helpers = [
-      { value: 'menu', display: '  📋  Menu', desc: 'Open the full menu' },
       { value: 'back', display: '  ← Back', desc: 'Return to devkit' },
     ];
     if (text.startsWith('/') || text === '') {
@@ -307,7 +310,7 @@ function render(clear = true) {
   // 6. Hint line
   const hint = context === 'root'
     ? chalk.dim('  /<tool> launch  ·  /help  ·  /clear  ·  exit')
-    : chalk.dim(`${chalk.cyan('/')} commands  ·  ${chalk.cyan('menu')} full UI  ·  ${chalk.cyan('Esc')} back  ·  ${chalk.cyan('back')} to root`);
+    : chalk.dim(`${chalk.cyan('/')} commands  ·  ${chalk.cyan('Esc')} back  ·  ${chalk.cyan('back')} to root`);
   stdout.write('\x1b[0K\n');
   stdout.write(hint + '\x1b[0K');
 
@@ -355,7 +358,6 @@ async function dispatch(raw) {
       emit(`    ${chalk.cyan('<tool>'.padEnd(10))}    Launch a tool`);
     } else {
       emit(`    ${chalk.yellow('<cmd>'.padEnd(10))}    Run a tool command`);
-      emit(`    ${chalk.yellow('menu'.padEnd(10))}    Open the full menu`);
       emit(`    ${chalk.yellow('back'.padEnd(10))}    Return to devkit`);
       emit(`    ${chalk.cyan('/clear'.padEnd(10))}   Clear screen`);
     }
@@ -371,20 +373,6 @@ async function dispatch(raw) {
       contextMod = null;
       contextCmdList = [];
       emit(chalk.dim('  ── back to devkit ──'));
-      buildSuggestions(input.buf);
-      render(true);
-      return;
-    }
-
-    if (cmd === 'menu') {
-      // Launch full clack menu
-      if (stdin.isTTY) { render(true); rawMode(false); stdout.write('\x1b[?25h\n'); }
-      try {
-        if (contextMod?.main) await contextMod.main();
-      } catch (err) { console.error(chalk.red(`Error: ${err.message}`)); }
-      if (stdin.isTTY) { stdout.write('\n'); rawMode(true); }
-      // Stay in context after menu exits
-      emit(chalk.dim(`  ── back to ${context} context ──`));
       buildSuggestions(input.buf);
       render(true);
       return;
@@ -591,7 +579,7 @@ async function dispatch(raw) {
         contextMod = mod;
         contextCmdList = mod.commands;
         mod.onEnter?.();
-        emit(chalk.dim(`  ── ${tool.label} — type / to see commands, 'menu' for full UI ──`));
+        emit(chalk.dim(`  ── ${tool.label} — type / to see commands ──`));
         // Show suggestions immediately
         buildSuggestions('/');
         render(true);
@@ -730,7 +718,6 @@ async function start() {
 
       if (ctx !== 'root') {
         if (cmd === 'back') { ctxMod?.onExit?.(); ctx = 'root'; ctxMod = null; console.log(''); continue; }
-        if (cmd === 'menu' && ctxMod?.main) { console.log('Menu not available in non-TTY mode'); continue; }
         if (ctxMod?.execute) {
           try { const r = await ctxMod.execute(cmd); if (r?.length) console.log(r.join('\n')); }
           catch (err) { console.error(`Error: ${err.message}`); }
@@ -741,8 +728,8 @@ async function start() {
       if (cmd === '/tools') { console.log(''); console.log('Available tools:'); for (const t of TOOLS) console.log(`  ${t.name.padEnd(10)} ${t.hint}`); console.log(''); }
       else if (cmd === '/clear' || cmd === 'clear') { console.clear(); }
       else {
-        const tn = cmd.startsWith('/') ? cmd.slice(1) : cmd;
-        const tool = TOOLS.find(t => t.name === tn);
+        const tn = (cmd.startsWith('/') ? cmd.slice(1) : cmd).toLowerCase();
+        const tool = TOOLS.find(t => t.name === tn || (t.keywords || []).some(k => k === tn));
         if (!tool) { console.log(`Unknown: "${cmd}"`); continue; }
         try {
           const mod = tool.mod;

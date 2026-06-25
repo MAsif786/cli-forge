@@ -42,12 +42,14 @@ export function _setAppendOutput(fn) {
   _appendOutputCallback = fn;
 }
 
+let _workingCallback = null;
+let _stopWorkingCallback = null;
+
 /** Called by the shell to register its start/stop working callbacks. */
 export function _setWorkingCallbacks(start, stop) {
   _workingCallback = start;
   _stopWorkingCallback = stop;
 }
-let _stopWorkingCallback = null;
 
 /** Tool calls this before a long async operation. Starts the spinner. */
 export function _startWorking(text) {

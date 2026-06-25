@@ -15,6 +15,7 @@
  *       name: 'mytool',              // unique lowercase ID
  *       label: '🛠  My Tool',         // display name with emoji
  *       hint: 'does awesome stuff',   // one-line description
+ *       keywords: ['stuff', 'magic'], // optional — search aliases
  *     },
  *     commands: [
  *       { name: 'cmd1', desc: 'First command' },
@@ -44,7 +45,7 @@ export function defineTool(config) {
   }
 
   return {
-    manifest: { ...config.manifest },
+    manifest: { ...config.manifest, keywords: config.manifest.keywords || [] },
     commands: [...config.commands],
     execute: config.execute,
     main: typeof config.main === 'function' ? config.main : null,
